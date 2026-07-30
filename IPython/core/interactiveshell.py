@@ -2440,29 +2440,39 @@ class InteractiveShell(SingletonConfigurable):
         # Expose as public API from the magics manager
         self.register_magics = self.magics_manager.register
 
-        self.register_magics(m.AutoMagics, m.BasicMagics, m.CodeMagics,
-            m.ConfigMagics, m.DisplayMagics, m.ExecutionMagics,
-            m.ExtensionMagics, m.HistoryMagics, m.LoggingMagics,
-            m.NamespaceMagics, m.OSMagics, m.PackagingMagics,
-            m.PylabMagics, m.ScriptMagics,
-        )
-        self.register_magics(m.AsyncMagics)
+        mman = self.magics_manager
+
+        # The built-in magics are registered lazily: only their *names* are
+        # known at startup, and the module implementing a magic is imported the
+        # first time that magic is used.  The name -> class table is hand
+        # maintained in IPython.core.magics._table; tests/test_magic_table.py
+        # fails if it drifts out of sync.
+        for class_name, names in m.BUILTIN_MAGICS.items():
+            spec = "{}:{}".format(m.MAGICS_CLASSES[class_name], class_name)
+            line_magics = names["line"]
+            cell_magics = names["cell"]
+            if class_name == "ScriptMagics":
+                # ScriptMagics generates one `%%<interpreter>` cell magic per
+                # entry of its (configurable) `script_magics` trait.
+                cell_magics = (
+                    *cell_magics,
+                    *m.configured_script_magics(self.config),
+                )
+            mman.register_lazy_class(spec, line_magics, cell_magics)
 
         # Register Magic Aliases
-        mman = self.magics_manager
         # FIXME: magic aliases should be defined by the Magics classes
         # or in MagicsManager, not here
-        mman.register_alias('ed', 'edit')
-        mman.register_alias('hist', 'history')
-        mman.register_alias('rep', 'recall')
-        mman.register_alias('SVG', 'svg', 'cell')
-        mman.register_alias('HTML', 'html', 'cell')
-        mman.register_alias('file', 'writefile', 'cell')
+        for alias, target, magic_kind in m.BUILTIN_MAGIC_ALIASES:
+            mman.register_alias(alias, target, magic_kind)
 
         # FIXME: Move the color initialization to the DisplayHook, which
         # should be split into a prompt manager and displayhook. We probably
         # even need a centralize colors management object.
-        self.run_line_magic('colors', self.colors)
+        # This used to go through `%colors`, but that would defeat the lazy
+        # registration above by importing the basic magics on every startup;
+        # all the magic does is assign `shell.colors`, whose observer this is.
+        self.init_syntax_highlighting()
 
     # Defined here so that it's included in the documentation
     @functools.wraps(magic.MagicsManager.register_function)
@@ -2618,19 +2628,19 @@ class InteractiveShell(SingletonConfigurable):
         """Find and return a line magic by name.
 
         Returns None if the magic isn't found."""
-        return self.magics_manager.magics['line'].get(magic_name)
+        return self.magics_manager.find("line", magic_name)
 
     def find_cell_magic(self, magic_name):
         """Find and return a cell magic by name.
 
         Returns None if the magic isn't found."""
-        return self.magics_manager.magics['cell'].get(magic_name)
+        return self.magics_manager.find("cell", magic_name)
 
     def find_magic(self, magic_name, magic_kind='line'):
         """Find and return a magic of the given type by name.
 
         Returns None if the magic isn't found."""
-        return self.magics_manager.magics[magic_kind].get(magic_name)
+        return self.magics_manager.find(magic_kind, magic_name)
 
     #-------------------------------------------------------------------------
     # Things related to macros

@@ -24,13 +24,9 @@ from IPython.core.application import (
     ProfileDir, BaseIPythonApplication, base_flags, base_aliases
 )
 from IPython.core.magic import MagicsManager
-from IPython.core.magics import (
-    ScriptMagics, LoggingMagics
-)
 from IPython.core.shellapp import (
     InteractiveShellApp, shell_flags, shell_aliases
 )
-from IPython.extensions.storemagic import StoreMagics
 from .interactiveshell import TerminalInteractiveShell
 from IPython.paths import get_ipython_dir
 from traitlets import (
@@ -202,6 +198,12 @@ class TerminalIPythonApp(BaseIPythonApplication, InteractiveShellApp):
     @default('classes')
     def _classes_default(self):
         """This has to be in a method, for TerminalIPythonApp to be available."""
+        # Imported here rather than at module level: these are only needed to
+        # generate config help, and importing them eagerly would defeat the
+        # lazy registration of the built-in magics.
+        from IPython.core.magics import LoggingMagics, ScriptMagics
+        from IPython.extensions.storemagic import StoreMagics
+
         return [
             InteractiveShellApp,  # ShellApp comes before TerminalApp, because
             self.__class__,      # it will also affect subclasses (e.g. QtConsole)

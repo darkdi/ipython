@@ -2432,6 +2432,9 @@ class IPCompleter(Completer):
         texts = text.strip().split()
 
         if len(texts) > 0 and (texts[0] == 'config' or texts[0] == '%config'):
+            # Magics classes are registered lazily and are only configurable
+            # once instantiated; load them so %config completes all of them.
+            self.shell.magics_manager.load_all_lazy_magics()
             # get all configuration classes
             classes = sorted({ c for c in self.shell.configurables
                                    if c.__class__.class_traits(config=True)
