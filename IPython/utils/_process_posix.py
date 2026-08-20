@@ -113,6 +113,7 @@ class ProcessHandler:
         # content from the buffer.
         out_size = 0
         assert self.sh is not None
+        child = None
         try:
             # Since we're not really searching the buffer for text patterns, we
             # can set pexpect's search window to be tiny and it won't matter.
@@ -135,6 +136,8 @@ class ProcessHandler:
                 # Update the pointer to what we've already printed
                 out_size = len(child.before)
         except KeyboardInterrupt:
+            if child is None:
+                raise
             # We need to send ^C to the process.  The ascii code for '^C' is 3
             # (the character is known as ETX for 'End of Text', see
             # curses.ascii.ETX).
@@ -152,6 +155,7 @@ class ProcessHandler:
             finally:
                 # Ensure the subprocess really is terminated
                 child.terminate(force=True)
+        assert child is not None
         # add isalive check, to ensure exitstatus is set:
         child.isalive()
 
